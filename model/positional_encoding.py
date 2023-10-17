@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from .coordinate_utils import convert_coordinate_start
 
 
 def tri(x, offset=0.5):
@@ -77,21 +78,7 @@ class TriangularPositionalEncoding2D(nn.Module):
         Returns:
         torch.Tensor, the triangular wave values
         """
-        x_offset, y_offset = torch.arange(0, w, step=1, device=coordinates.device), torch.arange(0, h, step=1, device=coordinates.device)
-        xx, yy = torch.meshgrid(x_offset, y_offset)
-        xx = xx.view(h*w, 1)
-        yy = yy.view(h*w, 1)
-
-
-        b = coordinates.shape[0]
-        x_start, y_start = torch.split(coordinates, 1, dim=-1)
-        # view as b x seq_len x 1
-        x_start = x_start.view(b, 1, 1)
-        y_start = y_start.view(b, 1, 1)
-
-        full_x = x_start + xx
-        full_y = y_start + yy
-
+        full_x, full_y = convert_coordinate_start(coordinates, h, w)
         encoding_x = self.encoding(full_x).view(b, h, w, -1).permute(0, 3, 1, 2)
         encoding_y = self.encoding(full_y).view(b, h, w, -1).permute(0, 3, 1, 2)
         return torch.cat([encoding_x, encoding_y], dim=1)
