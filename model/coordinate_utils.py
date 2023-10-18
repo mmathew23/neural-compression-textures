@@ -10,7 +10,6 @@ def convert_coordinate_start(coordinate_start, h, w, flatten_sequence=True):
     xx = xx.view(h, w, 1)
     yy = yy.view(h, w, 1)
 
-
     b = coordinate_start.shape[0]
     x_start, y_start = torch.split(coordinate_start, 1, dim=-1)
     # view as b x seq_len x 1
