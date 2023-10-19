@@ -3,6 +3,48 @@ import torch.nn as nn
 from .coordinate_utils import convert_coordinate_start
 
 
+def batch_bilinear_interpolate(grid, coords):
+    # grid is of shape [C, H, W]
+    # coords are in the range [-1, 1] and of shape [B, H', W', 2]
+
+    # First, map coordinates from [-1, 1] to [0, H-1/W-1]
+    coords = (coords + 1) * 0.5
+    coords[..., 0] = coords[..., 0] * (grid.size(2) - 1)
+    coords[..., 1] = coords[..., 1] * (grid.size(1) - 1)
+
+    # Here we extract the integer and fractional parts of the coordinates
+    x = coords[..., 0]
+    y = coords[..., 1]
+    x0 = torch.floor(x).long()
+    x1 = x0 + 1
+    y0 = torch.floor(y).long()
+    y1 = y0 + 1
+
+    # Make sure we don't index out of bounds
+    x0 = torch.clamp(x0, 0, grid.size(2) - 1)
+    x1 = torch.clamp(x1, 0, grid.size(2) - 1)
+    y0 = torch.clamp(y0, 0, grid.size(1) - 1)
+    y1 = torch.clamp(y1, 0, grid.size(1) - 1)
+
+    # Extract values from grid. We're using advanced indexing
+    # Shape of Ia, Ib, Ic, Id: [B, C, H', W']
+    Ia = grid[:, y0, x0].permute(1, 0, 2, 3)
+    Ib = grid[:, y1, x0].permute(1, 0, 2, 3)
+    Ic = grid[:, y0, x1].permute(1, 0, 2, 3)
+    Id = grid[:, y1, x1].permute(1, 0, 2, 3)
+
+    # Calculate the fractional part of the coordinates
+    wa = (x1.type(torch.float) - x) * (y1.type(torch.float) - y)
+    wb = (x1.type(torch.float) - x) * (y - y0.type(torch.float))
+    wc = (x - x0.type(torch.float)) * (y1.type(torch.float) - y)
+    wd = (x - x0.type(torch.float)) * (y - y0.type(torch.float))
+
+    # Perform the interpolation and sum the weighted pixels
+    output = (wa.unsqueeze(1) * Ia) + (wb.unsqueeze(1) * Ib) + (wc.unsqueeze(1) * Ic) + (wd.unsqueeze(1) * Id)
+
+    return output
+
+
 class Grid(nn.Module):
     """
     Base class for Feature level grids
