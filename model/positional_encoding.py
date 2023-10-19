@@ -28,13 +28,14 @@ class TriangularPositionalEncoding1D(nn.Module):
         # I am basing the positional encoding config based on Fig 5 in the paper
         # Authors don't seem to detail the exact config, and closest thing is the
         # pixel values from the paper
-        x = torch.arange(0, sequence_length, step=sequence_length)
-        for octave in range([2**octave for octave in range(octaves)]):
+        x = torch.arange(0, sequence_length, step=1)
+        for octave in range(octaves):
+            div = 2**(octave+1)
             for i, offset in enumerate((.0, 0.5)):
                 if octave == 0 and i == 1:
                     # Skip the second offset in the first octave
                     continue
-                encoding = tri(x / (octave), offset=offset)
+                encoding = tri(x / (div), offset=offset)
                 encodings.append(encoding)
         if include_constant:
             encodings.append(torch.zeros(sequence_length, dtype=encodings[-1].dtype))
@@ -52,8 +53,9 @@ class TriangularPositionalEncoding1D(nn.Module):
         torch.Tensor, the triangular wave values
         """
         b = coordinates.shape[0]
-        encodings = self.encodings.unsqueeze(0).expand(b, -1, -1)
-        results = encodings.gather(1, coordinates % self.sequence_length)
+        d1, d2 = self.encodings.shape
+        encodings = self.encodings.unsqueeze(0).expand(b, d1, d2)
+        results = torch.gather(encodings, 2, (coordinates % self.sequence_length).permute(0, 2, 1))
         return results
 
 
@@ -79,6 +81,7 @@ class TriangularPositionalEncoding2D(nn.Module):
         torch.Tensor, the triangular wave values
         """
         full_x, full_y = convert_coordinate_start(coordinates, h, w)
+        b = coordinates.shape[0]
         encoding_x = self.encoding(full_x).view(b, h, w, -1).permute(0, 3, 1, 2)
         encoding_y = self.encoding(full_y).view(b, h, w, -1).permute(0, 3, 1, 2)
         return torch.cat([encoding_x, encoding_y], dim=1)

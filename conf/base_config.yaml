@@ -1,0 +1,77 @@
+device: 'cuda:0'
+dtype: 'float32'
+trainer:
+  epochs: 2
+  lr: 0.001
+dataset:
+  image_path: 'x.jpg'
+  tile_size: 256
+  resolution: 1024
+dataloader:
+  batch_size: 8
+  num_workers: 6
+model:
+  in_channels: 42
+  hidden_channels: 128
+  out_channels: 3
+  num_layers: 2
+  features:
+    resolution: 1024
+    circular: True
+    feature_levels:
+      - grid0:
+          channels: 4
+          h: 256
+          w: 256
+        grid1:
+          channels: 4
+          h: 128
+          w: 128
+        lod:
+          - 0
+          - 1
+          - 2
+          - 3
+        quantization: 8
+      - grid0:
+          channels: 4
+          h: 64
+          w: 64
+        grid1:
+          channels: 4
+          h: 32
+          w: 32
+        lod:
+          - 4
+          - 5
+        quantization: 8
+      - grid0:
+          channels: 4
+          h: 16
+          w: 16
+        grid1:
+          channels: 4
+          h: 8
+          w: 8
+        lod:
+          - 6
+          - 7
+        quantization: 8
+      - grid0:
+          channels: 4
+          h: 4
+          w: 4
+        grid1:
+          channels: 4
+          h: 2
+          w: 2
+        lod:
+          - 8
+          - 9
+          - 10
+        quantization: 8
+    positional_encoding:
+      sequence_length: 8
+      octaves: 3
+      include_constant: True
+    

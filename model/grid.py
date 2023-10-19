@@ -20,7 +20,7 @@ class Grid(nn.Module):
         self.grid = nn.Parameter(torch.zeros(1, channels, h, w))
         nn.init.xavier_normal_(self.grid)
 
-    def resample(self, scale_factor, coordinate_start, h, w, support_resolution_h, support_resolution_w):
+    def resample(self, coordinate_start, h, w, support_resolution_h, support_resolution_w):
         raise NotImplementedError
 
     def simulate_quantization(self):
@@ -30,6 +30,9 @@ class Grid(nn.Module):
     @torch.no_grad()
     def clamp_values(self):
         self.grid.data.clamp_(-self.quant_left, self.quant_right)
+
+    def forward(self, coordinate_start, h, w, support_resolution_h, support_resolution_w):
+        return self.resample(coordinate_start, h, w, support_resolution_h, support_resolution_w)
 
 
 class Grid0(Grid):
@@ -41,10 +44,9 @@ class Grid0(Grid):
 
     def resample(self, coordinate_start, h, w, support_resolution_h=None, support_resolution_w=None):
         # Support resolution not needed since normalization is determined by main grid size
-        scale_factor_h = int(h / self.h)
-        scale_factor_w = int(w / self.w)
+        scale_factor_h = h / self.h
+        scale_factor_w = w / self.w
         assert scale_factor_h == scale_factor_w, f"Scale factors must be equal check the h: {h} and w: {w} values"
-        assert scale_factor_h > 0 and scale_factor_w > 0, f"Downsampling not supported yet, check the h: {h} and w: {w} values"
 
         # it's not self.h - 1 because we are returning one extra coordinate
         offset_h = self.h / 2
@@ -65,9 +67,9 @@ class Grid0(Grid):
             full_x = (full_x - offset_w) / offset_w
             full_y = (full_y - offset_h) / offset_h
         full_coordinates = torch.cat((full_y, full_x), dim=-1)
-        grid = torch.nn.functional.grid_sample(self.grid, full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
+        full_coordinates = full_coordinates.to(device=self.grid.device, dtype=self.grid.dtype)
+        grid = torch.nn.functional.grid_sample(self.grid.expand([full_coordinates.shape[0], self.grid.shape[1], self.grid.shape[2], self.grid.shape[3]]), full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
         grid = torch.cat([grid[:, :, :-1, :-1], grid[:, :, 1:, :-1], grid[:, :, :-1, 1:], grid[:, :, 1:, 1:]], dim=1)
-
         return grid
 
 
@@ -79,8 +81,9 @@ class Grid1(Grid):
         super().__init__(channels, h, w, quantization, circular)
 
     def resample(self, coordinate_start, h, w, support_resolution_h, support_resolution_w):
-        scale_factor_h = int(h / self.h)
-        scale_factor_w = int(w / self.w)
+        # support resolution does the scaling so that it samples the grid appropriately
+        scale_factor_h = h / self.h
+        scale_factor_w = w / self.w
         assert scale_factor_h == scale_factor_w, f"Scale factors must be equal check the h: {h} and w: {w} values"
 
         offset_h = (support_resolution_h-1) / 2
@@ -96,6 +99,7 @@ class Grid1(Grid):
             full_x = (full_x - offset_w) / offset_w
             full_y = (full_y - offset_h) / offset_h
         full_coordinates = torch.cat((full_y, full_x), dim=-1)
-        grid = torch.nn.functional.grid_sample(self.grid, full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
+        full_coordinates = full_coordinates.to(device=self.grid.device, dtype=self.grid.dtype)
+        grid = torch.nn.functional.grid_sample(self.grid.expand([full_coordinates.shape[0], self.grid.shape[1], self.grid.shape[2], self.grid.shape[3]]), full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
 
         return grid
