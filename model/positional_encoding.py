@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .coordinate_utils import convert_coordinate_start
+from model.coordinate_utils import convert_coordinate_start
 
 
 def tri(x, offset=0.5):
@@ -30,7 +30,7 @@ class TriangularPositionalEncoding1D(nn.Module):
         # pixel values from the paper
         x = torch.arange(0, sequence_length, step=1)
         for octave in range(octaves):
-            div = 2**(octave+1)
+            div = 2**(octave)
             for i, offset in enumerate((.0, 0.5)):
                 if octave == 0 and i == 1:
                     # Skip the second offset in the first octave
