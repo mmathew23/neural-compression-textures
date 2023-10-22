@@ -19,7 +19,7 @@ def convert_coordinate_start(coordinate_start, h, w, flatten_sequence=True):
     full_x = x_start + xx
     full_y = y_start + yy
     if flatten_sequence:
-        full_x = full_x.view(b, -1, 1)
-        full_y = full_y.view(b, -1, 1)
+        full_x = full_x.view(b, -1)
+        full_y = full_y.view(b, -1)
 
     return full_x, full_y
