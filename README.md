@@ -3,4 +3,7 @@ An unofficial PyTorch implentation of the paper *Random Access Neural Compressio
 [Project Page](https://research.nvidia.com/labs/rtr/neural_texture_compression/)
 
 WIP
+- [x] Single Image training
+- [ ] Texture Set Training
+- [ ] Quantized Training
 
