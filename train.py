@@ -49,11 +49,18 @@ def train(config: DictConfig) -> None:
             batch_progress.set_postfix({"loss": total_loss})
             optimizer.step()
             if i % 100 == 0:
-                torch.save(texture_model.state_dict(), f"saves/model_{i+1}.pt")
-
-                predictions = denormalize(predictions.detach().cpu())
-                grid = make_grid(predictions, nrow=4)
-                to_pil_image(grid).save(f"test_images/predictions_{i+1}.png")
+                # torch.save(texture_model.state_dict(), f"saves/model_{i+1}.pt")
+                with torch.no_grad():
+                    lod = 0
+                    lod_batch = batch[lod]
+                    pixel_values, coordinates = lod_batch["pixel_values"], lod_batch["coordinates"]
+                    tile_size = lod_batch["tile_size"]
+                    pixel_values = pixel_values.to(device=device, dtype=dtype)
+                    coordinates = coordinates.to(device=device, dtype=torch.long)
+                    predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
+                    predictions = denormalize(predictions.detach().cpu())
+                    grid = make_grid(predictions, nrow=4)
+                    to_pil_image(grid).save(f"test_images/predictions_{i+1}.png")
 
 
 if __name__ == "__main__":

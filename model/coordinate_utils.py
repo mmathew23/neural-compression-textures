@@ -1,11 +1,11 @@
 import torch
 
 
-def convert_coordinate_start(coordinate_start, h, w, flatten_sequence=True):
+def convert_coordinate_start(coordinate_start, h, w, stride=1, flatten_sequence=True):
     """
     Util to convert a batch of coordinate starts to a batch of coordinates of size h x w
     """
-    x_offset, y_offset = torch.arange(0, w, step=1, device=coordinate_start.device), torch.arange(0, h, step=1, device=coordinate_start.device)
+    x_offset, y_offset = torch.arange(0, w*stride, step=stride, device=coordinate_start.device), torch.arange(0, h*stride, step=stride, device=coordinate_start.device)
     xx, yy = torch.meshgrid(x_offset, y_offset)
     xx = xx.view(h, w, 1)
     yy = yy.view(h, w, 1)

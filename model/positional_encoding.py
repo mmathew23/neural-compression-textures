@@ -55,8 +55,8 @@ class TriangularPositionalEncoding1D(nn.Module):
         b, seq_len = coordinates.shape
         d1, d2 = self.encodings.shape
         encodings = self.encodings.unsqueeze(0).expand(b, d1, d2)
-        coordinates = (coordinates % self.sequence_length).unsqueeze(-1).expand(b, seq_len, d2)
-        results = torch.gather(encodings, 1, coordinates)
+        coordinates = (coordinates % self.sequence_length).unsqueeze(1).expand(b, d1, seq_len)
+        results = torch.gather(encodings, 2, coordinates)
         return results
 
 
@@ -69,7 +69,7 @@ class TriangularPositionalEncoding2D(nn.Module):
         self.sequence_length = sequence_length
         self.encoding = TriangularPositionalEncoding1D(sequence_length, octaves, include_constant)
 
-    def forward(self, coordinates, h, w):
+    def forward(self, coordinates, h, w, stride=1):
         """
         Compute the triangular wave for a batch of start coordinates
 
@@ -81,8 +81,8 @@ class TriangularPositionalEncoding2D(nn.Module):
         Returns:
         torch.Tensor, the triangular wave values
         """
-        full_x, full_y = convert_coordinate_start(coordinates, h, w)
+        full_x, full_y = convert_coordinate_start(coordinates, h, w, stride)
         b = coordinates.shape[0]
-        encoding_x = self.encoding(full_x).view(b, h, w, -1).permute(0, 3, 1, 2)
-        encoding_y = self.encoding(full_y).view(b, h, w, -1).permute(0, 3, 1, 2)
+        encoding_x = self.encoding(full_x).view(b, -1, h, w)
+        encoding_y = self.encoding(full_y).view(b, -1, h, w)
         return torch.cat([encoding_x, encoding_y], dim=1)

@@ -19,7 +19,7 @@ class VariableTileDataset(Dataset):
         self.tiles_y = self.image.height // tile_size
 
     def __len__(self):
-        return self.image.width * self.image.height
+        return 16000
 
     def __getitem__(self, idx):
         # Extract the tile and resize to the desired resolution
@@ -27,15 +27,16 @@ class VariableTileDataset(Dataset):
         for level, level_resolution in self.levels:
             tile = self.image.resize((level_resolution, level_resolution), Image.BILINEAR)
             # Calculate the top-left pixel of this tile
-            tile_x = (idx % tile.width)
-            tile_y = (idx // tile.width)
+            tile_x = (idx % self.tiles_x) * int(self.tile_size * (level_resolution / self.image.width))
+            tile_y = ((idx // self.tiles_y) % self.tiles_y) * int(self.tile_size * (level_resolution / self.image.width))
 
-            tile = tile.crop((tile_x, tile_y, tile_x + self.tile_size, tile_y + self.tile_size))
+            tile_size = max(1, self.tile_size//(2**level))
+            tile = tile.crop((tile_x, tile_y, tile_x + tile_size, tile_y + tile_size))
             return_dict[level] = {
                 "pixel_values": normalize(to_tensor(tile), [0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
                 'resolution': level_resolution,
                 'coordinates': torch.tensor([tile_y, tile_x], dtype=torch.long),
-                'tile_size': self.tile_size,
+                'tile_size': tile_size,
             }
 
         return return_dict
