@@ -4,7 +4,7 @@ trainer:
   epochs: 2
   lr: 0.005
 dataset:
-  image_path: 'texture_sets/Bricks085_1K-PNG'
+  image_path: 'texture_sets/Ground068_1K-JPG'
   tile_size: 256
   resolution: 1024
 dataloader:
