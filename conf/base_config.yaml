@@ -2,9 +2,9 @@ device: 'cuda:0'
 dtype: 'float32'
 trainer:
   epochs: 2
-  lr: 0.001
+  lr: 0.005
 dataset:
-  image_path: 'X.jpg'
+  image_path: 'texture_sets/Bricks085_1K-PNG'
   tile_size: 256
   resolution: 1024
 dataloader:
@@ -13,7 +13,7 @@ dataloader:
 model:
   in_channels: 33
   hidden_channels: 64
-  out_channels: 3
+  out_channels: 9
   num_layers: 2
   features:
     resolution: 1024
