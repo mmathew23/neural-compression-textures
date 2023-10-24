@@ -6,7 +6,7 @@ def convert_coordinate_start(coordinate_start, h, w, stride=1, flatten_sequence=
     Util to convert a batch of coordinate starts to a batch of coordinates of size h x w
     """
     x_offset, y_offset = torch.arange(0, w*stride, step=stride, device=coordinate_start.device), torch.arange(0, h*stride, step=stride, device=coordinate_start.device)
-    xx, yy = torch.meshgrid(x_offset, y_offset)
+    xx, yy = torch.meshgrid(x_offset, y_offset, indexing='ij')
     xx = xx.view(h, w, 1)
     yy = yy.view(h, w, 1)
 
