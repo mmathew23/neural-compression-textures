@@ -2,29 +2,31 @@ device: 'cuda:0'
 dtype: 'float32'
 trainer:
   epochs: 2
-  lr: 0.005
+  lr_features: 0.01
+  lr_mlp: 0.005
 dataset:
   image_path: 'texture_sets/Ground068_1K-JPG'
   tile_size: 256
   resolution: 1024
+  train_len: 32000
 dataloader:
   batch_size: 8
   num_workers: 6
 model:
-  in_channels: 63
+  in_channels: 93
   hidden_channels: 64
-  out_channels: 9
+  out_channels: 8
   num_layers: 2
   features:
     resolution: 1024
     circular: True
     feature_levels:
       - grid0:
-          channels: 10
+          channels: 16
           h: 256
           w: 256
         grid1:
-          channels: 10
+          channels: 16
           h: 128
           w: 128
         lod:
@@ -34,11 +36,11 @@ model:
           - 3
         quantization: 8
       - grid0:
-          channels: 10
+          channels: 16
           h: 64
           w: 64
         grid1:
-          channels: 10
+          channels: 16
           h: 32
           w: 32
         lod:
@@ -46,11 +48,11 @@ model:
           - 5
         quantization: 8
       - grid0:
-          channels: 10
+          channels: 16
           h: 16
           w: 16
         grid1:
-          channels: 10
+          channels: 16
           h: 8
           w: 8
         lod:
@@ -58,11 +60,11 @@ model:
           - 7
         quantization: 8
       - grid0:
-          channels: 10
+          channels: 16
           h: 4
           w: 4
         grid1:
-          channels: 10
+          channels: 16
           h: 2
           w: 2
         lod:

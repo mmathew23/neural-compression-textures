@@ -5,40 +5,33 @@ from torch.utils.data import Dataset
 from torch.utils.data import Sampler
 import math
 import os
-from data.material import process_images
+from data.material import Material
 
 
 class VariableTileDataset(Dataset):
-    def __init__(self, image_path, tile_size, resolution, dtype):
+    def __init__(self, image_path, tile_size, resolution, dtype, train_len):
         self.dtype = dtype
         self.resolution = resolution
         self.levels = [(i, int(self.resolution / (2**i))) for i in range(int(math.log2(self.resolution))+1)]
-        self.image = self.process_image(image_path, resolution)
+        self.image = Material()
+        self.image.process_images(image_path, resolution, dtype)
         self.tile_size = tile_size
-        self.channels, self.image_height, self.image_width = self.image.shape
+        self.channels, self.image_height, self.image_width = self.image.result_tensor.shape
 
         # TODO: make a more robust sampling strategy for tiles
         # Calculate how many tiles fit in the x and y directions
         self.tiles_x = self.image_width // tile_size
         self.tiles_y = self.image_height // tile_size
-
-
-    def process_image(self, filename, resolution):
-        # check if filename is directory or file
-        if os.path.isdir(filename):
-            textures = process_images(filename, resolution, self.dtype)
-        else:
-            raise ValueError(f"Should be a directory with a texture set: {filename}")
-        return textures
+        self.train_len = train_len
 
     def __len__(self):
-        return 16000
+        return self.train_len
 
     def __getitem__(self, idx):
         # Extract the tile and resize to the desired resolution
         return_dict = {}
         for level, level_resolution in self.levels:
-            tile = torch.nn.functional.interpolate(self.image[None], size=(level_resolution, level_resolution), mode='bilinear', align_corners=True)
+            tile = torch.nn.functional.interpolate(self.image.result_tensor[None], size=(level_resolution, level_resolution), mode='bilinear', align_corners=True)
             # Calculate the top-left pixel of this tile
             tile_x = (idx % self.tiles_x) * int(self.tile_size * (level_resolution / self.image_width))
             tile_y = ((idx // self.tiles_y) % self.tiles_y) * int(self.tile_size * (level_resolution / self.image_width))

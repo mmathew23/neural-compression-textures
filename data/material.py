@@ -2,82 +2,132 @@ import os
 import torch
 from PIL import Image
 from torchvision.transforms.functional import to_tensor, normalize
+from torchvision.utils import make_grid
 
 
-keyword_order = ["diffuse", "normal", "roughness", "occlusion", "metallic", "specular", "displacement"]
-# Map of keywords to texture types
-texture_keywords = {
-    keyword_order[0]: ["diffuse", "albedo", "color", "diff"],
-    keyword_order[1]: ["normal", "nor_gl"],
-    keyword_order[2]: ["roughness", "rough"],
-    keyword_order[3]: ["occlusion", "ao", "ambient"],
-    keyword_order[4]: ["metallic", "metalness"],
-    keyword_order[5]: ["specular"],
-    keyword_order[6]: ["displacement", "disp"],
-    # add other texture types and their possible keywords if needed
-}
+class Material:
+    def __init__(self):
+        self.keyword_order = ["diffuse", "normal", "roughness", "occlusion", "metallic", "specular", "displacement"]
+        self.texture_keywords = {
+            self.keyword_order[0]: ["diffuse", "albedo", "color", "diff"],
+            self.keyword_order[1]: ["normal", "nor_gl"],
+            self.keyword_order[2]: ["roughness", "rough"],
+            self.keyword_order[3]: ["occlusion", "ao", "ambient"],
+            self.keyword_order[4]: ["metallic", "metalness"],
+            self.keyword_order[5]: ["specular"],
+            self.keyword_order[6]: ["displacement", "disp"],
+            # add other texture types and their possible keywords if needed
+        }
 
-texture_configs = {
-    keyword_order[0]: {"expected_channels": 3, "mode": "RGB"},
-    keyword_order[1]: {"expected_channels": 3, "mode": "RGB"},
-    keyword_order[2]: {"expected_channels": 1, "mode": "L"},
-    keyword_order[3]: {"expected_channels": 1, "mode": "L"},
-    keyword_order[4]: {"expected_channels": 1, "mode": "L"},
-    keyword_order[5]: {"expected_channels": 1, "mode": "L"},
-    keyword_order[6]: {"expected_channels": 1, "mode": "L"},
-    # add other texture types if needed
-}
+        self.texture_configs = {
+            self.keyword_order[0]: {"expected_channels": 3, "mode": "RGB"},
+            self.keyword_order[1]: {"expected_channels": 3, "mode": "RGB"},
+            self.keyword_order[2]: {"expected_channels": 1, "mode": "L"},
+            self.keyword_order[3]: {"expected_channels": 1, "mode": "L"},
+            self.keyword_order[4]: {"expected_channels": 1, "mode": "L"},
+            self.keyword_order[5]: {"expected_channels": 1, "mode": "L"},
+            self.keyword_order[6]: {"expected_channels": 1, "mode": "L"},
+            # add other texture types if needed
+        }
 
+        self.result_tensor = None  # This will hold the final result
+        self.material_slices = {}  # This will hold the material type to slice the result tensor by
+        self.material_count = 0
 
-def identify_texture_type(filename):
-    filename_lower = filename.lower()
+    def identify_texture_type(self, filename):
+        filename_lower = filename.lower()
 
-    # Identify the texture type based on keywords in the filename
-    for texture_type, keywords in texture_keywords.items():
-        for keyword in keywords:
-            if keyword in filename_lower:
-                return texture_type
+        # Identify the texture type based on keywords in the filename
+        for texture_type, keywords in self.texture_keywords.items():
+            for keyword in keywords:
+                if keyword in filename_lower:
+                    return texture_type
 
-    raise ValueError(f"Could not identify texture type from filename: {filename}")
+        raise ValueError(f"Could not identify texture type from filename: {filename}")
 
+    def process_images(self, directory, resolution, dtype=torch.float32):
+        textures = {}
+        # Loop through all files in the specified directory
+        for filename in os.listdir(directory):
+            if filename.endswith(('.png', '.jpg', '.jpeg', '.tiff')):  # add other file types if needed
+                file_path = os.path.join(directory, filename)
 
-def process_images(directory, resolution, dtype=torch.float32):
-    textures = {}
-    # Loop through all files in the specified directory
-    for filename in os.listdir(directory):
-        if filename.endswith(('.png', '.jpg', '.jpeg', '.tiff')):  # add other file types if needed
-            file_path = os.path.join(directory, filename)
+                with Image.open(file_path) as img:
+                    texture_type = self.identify_texture_type(filename)
+                    if texture_type not in self.texture_configs:
+                        raise ValueError(f"Unknown texture type: {texture_type}")
 
-            with Image.open(file_path) as img:
-                texture_type = identify_texture_type(filename)
-                if texture_type not in texture_configs:
-                    raise ValueError(f"Unknown texture type: {texture_type}")
+                    img = img.convert(self.texture_configs[texture_type]['mode'])
+                    img = img.resize((resolution, resolution), Image.BICUBIC)
 
-                img = img.convert(texture_configs[texture_type]['mode'])
-                img = img.resize((resolution, resolution), Image.BICUBIC)
+                    tensor = to_tensor(img).to(dtype)
 
-                tensor = to_tensor(img).to(dtype)
+                    if tensor.shape[0] != self.texture_configs[texture_type]['expected_channels']:
+                        raise ValueError(f"Expected {self.texture_configs[texture_type]['expected_channels']} channels, got {tensor.shape[0]}")
 
-                if tensor.shape[0] != texture_configs[texture_type]['expected_channels']:
-                    if tensor.shape[0] > texture_configs[texture_type]['expected_channels']:
-                        print(f"Unexpected number of channels for {texture_type}. Expected {texture_configs[texture_type]['expected_channels']}, got {tensor.shape[0]}")
-                        print(f"Defaulting to {texture_configs[texture_type]['expected_channels']} channels")
-                        tensor = tensor[:texture_configs[texture_type]['expected_channels']]
-                    else:
-                        # Usually when expected channels doesnt match the actual, it's because there is an alpha channel
-                        # or it's grayscale but opening as rgb. In these cases the expected < than actual and we can just
-                        # slice off the extra channeles, but otherwise we don't know how to handle it
-                        raise ValueError(f"Unexpected number of channels for {texture_type}. Expected {texture_configs[texture_type]['expected_channels']}, got {tensor.shape[0]}")
+                    textures[texture_type] = tensor
 
-                textures[texture_type] = tensor
+        texture_list = []
 
-    texture_list = []
+        current_index = 0
+        for texture_type in self.keyword_order:
+            if texture_type in textures and textures[texture_type] is not None:
+                texture_list.append(textures[texture_type])
+                self.material_slices[texture_type] = (current_index, current_index + textures[texture_type].shape[0])
+                current_index += textures[texture_type].shape[0]
+                self.material_count += 1
 
-    for texture_type in keyword_order:
-        if texture_type in textures and textures[texture_type] is not None:
-            texture_list.append(textures[texture_type])
+        tensor = torch.cat(texture_list, dim=0)
+        # After processing all images, calculate the mean and std for normalization
+        self.mean = tensor.mean(dim=[1, 2])  # Mean along the channel dimensions
+        min_val = tensor.amin(dim=[1, 2])
+        max_val = tensor.amax(dim=[1, 2])
+        self.std = torch.max(max_val - self.mean, self.mean - min_val)
+        self.result_tensor = self.normalize(tensor)
 
-    tensor = torch.cat(texture_list, dim=0)
-    c = tensor.shape[0]
-    normalize_constant = torch.tensor([0.5 for i in range(c)], dtype=dtype)
-    return normalize(tensor, normalize_constant, normalize_constant)
+    def slice_by_material(self, material_type):
+        if material_type in self.material_slices:
+            start, end = self.material_slices[material_type]
+            return self.result_tensor[start:end]
+        else:
+            raise ValueError(f"Material type '{material_type}' not found in processed tensor.")
+
+    def normalize(self, tensor=None):
+        if tensor is None:
+            tensor = self.result_tensor
+        # This method assumes the input mean and std are tensors with the same number of elements as channels in 'tensor'
+        if self.mean.shape[0] != tensor.shape[0] or self.std.shape[0] != tensor.shape[0]:
+            raise ValueError("Mean and std length must be equal to the number of channels in the tensor.")
+
+        tensor = normalize(tensor, self.mean, self.std)
+        return tensor
+
+    def denormalize(self, tensor=None):
+        if tensor is None:
+            tensor = self.result_tensor
+        # This method assumes the input mean and std are tensors with the same number of elements as channels in 'tensor'
+        if self.mean.shape[0] != tensor.shape[0] or self.std.shape[0] != tensor.shape[0]:
+            raise ValueError("Mean and std length must be equal to the number of channels in the tensor.")
+
+        return tensor * self.std[:, None, None] + self.mean[:, None, None]
+
+    def split_material(self, tensor=None):
+        if tensor is None:
+            tensor = self.result_tensor
+        materials = torch.split(tensor, [self.material_slices[t][1]-self.material_slices[t][0] for t in self.keyword_order if t in self.material_slices], dim=0)
+        return materials
+
+    def expand_material(self, materials, channels=3):
+        h, w = materials[0].shape[-2:]
+
+        return [mat.expand(channels, h, w) for mat in materials]
+
+    def make_grid(self, tensor=None):
+        if tensor is None:
+            tensor = self.result_tensor
+        materials = self.split_material(self.denormalize(tensor))
+        materials = self.expand_material(materials)
+        nrows = 1 if len(materials) <= 1 else 2
+        #split returns a tuple but make grid expects a list
+        # expand_material also converts to list
+        return make_grid(materials, nrow=nrows)
