@@ -11,7 +11,7 @@ dataloader:
   batch_size: 8
   num_workers: 6
 model:
-  in_channels: 33
+  in_channels: 63
   hidden_channels: 64
   out_channels: 9
   num_layers: 2
@@ -20,11 +20,11 @@ model:
     circular: True
     feature_levels:
       - grid0:
-          channels: 4
+          channels: 10
           h: 256
           w: 256
         grid1:
-          channels: 4
+          channels: 10
           h: 128
           w: 128
         lod:
@@ -34,11 +34,11 @@ model:
           - 3
         quantization: 8
       - grid0:
-          channels: 4
+          channels: 10
           h: 64
           w: 64
         grid1:
-          channels: 4
+          channels: 10
           h: 32
           w: 32
         lod:
@@ -46,11 +46,11 @@ model:
           - 5
         quantization: 8
       - grid0:
-          channels: 4
+          channels: 10
           h: 16
           w: 16
         grid1:
-          channels: 4
+          channels: 10
           h: 8
           w: 8
         lod:
@@ -58,11 +58,11 @@ model:
           - 7
         quantization: 8
       - grid0:
-          channels: 4
+          channels: 10
           h: 4
           w: 4
         grid1:
-          channels: 4
+          channels: 10
           h: 2
           w: 2
         lod:
