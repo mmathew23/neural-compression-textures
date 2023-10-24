@@ -53,7 +53,6 @@ class Features(nn.Module):
                 self.lod_to_feature_level[lod] = feature_idx
                 resolution = self.lod_to_resolution[lod]
                 self.resolution_to_stride[resolution] = int(2**(lod_idx+(0 if feature_idx == 0 else 1)))
-        print(self.resolution_to_stride)
         assert all(lod_check), "all lod levels must be present in config for resolution {self.resolution}"
 
         self.positional_encoding = TriangularPositionalEncoding2D(**feature_config.positional_encoding)

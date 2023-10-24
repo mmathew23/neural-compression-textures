@@ -4,6 +4,6 @@ An unofficial PyTorch implentation of the paper *Random Access Neural Compressio
 
 WIP
 - [x] Single Image training
-- [ ] Texture Set Training
+- [x] Texture Set Training
 - [ ] Quantized Training
 

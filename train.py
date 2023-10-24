@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from model.model import Model
-from dataset import VariableTileDataset
+from data.dataset import VariableTileDataset
 import torch
 from torch.utils.data import DataLoader
 from utils import get_lod_from_resolution
@@ -21,14 +21,15 @@ class Denormalize:
 
 @hydra.main(version_base=None, config_path="conf", config_name="base_config")
 def train(config: DictConfig) -> None:
-    dataset = VariableTileDataset(config.dataset.image_path, config.dataset.tile_size, config.dataset.resolution)
-    dataloader = DataLoader(dataset, batch_size=config.dataloader.batch_size, shuffle=True, num_workers=config.dataloader.num_workers)
-    texture_model = Model(config.model)
     device=torch.device(config.device)
     dtype=getattr(torch, config.dtype) if hasattr(torch, config.dtype) else torch.float32
+
+    dataset = VariableTileDataset(config.dataset.image_path, config.dataset.tile_size, config.dataset.resolution, dtype=dtype)
+    dataloader = DataLoader(dataset, batch_size=config.dataloader.batch_size, shuffle=True, num_workers=config.dataloader.num_workers)
+    texture_model = Model(config.model)
     texture_model.to(device=device, dtype=dtype)
     optimizer = torch.optim.Adam(texture_model.parameters(), lr=config.trainer.lr)
-    denormalize = Denormalize()
+    denormalize = Denormalize(mean=[0.5 for i in range(config.model.out_channels)], std=[0.5 for i in range(config.model.out_channels)])
 
     lods = get_lod_from_resolution(config.dataset.resolution)
     for epoch in range(config.trainer.epochs):
@@ -59,7 +60,7 @@ def train(config: DictConfig) -> None:
                     coordinates = coordinates.to(device=device, dtype=torch.long)
                     predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
                     predictions = denormalize(predictions.detach().cpu())
-                    grid = make_grid(predictions, nrow=4)
+                    grid = make_grid(predictions[:, :3], nrow=4)
                     to_pil_image(grid).save(f"test_images/predictions_{i+1}.png")
 
 
