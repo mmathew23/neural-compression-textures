@@ -20,6 +20,14 @@ def train(config: DictConfig) -> None:
     material = dataset.image
     dataloader = DataLoader(dataset, batch_size=config.dataloader.batch_size, shuffle=True, num_workers=config.dataloader.num_workers)
     texture_model = Model(config.model)
+    # Following section is needed for inference
+    # this tells the model how to split channels for different components
+    # and how to denormalize
+    texture_model.mean = material.mean
+    texture_model.std = material.std
+    texture_model.splits = material.get_material_splits()
+    ####
+
     texture_model.to(device=device, dtype=dtype)
     print(f'number of elements {numel(texture_model)}')
     optimizer, scheduler = get_optimizer_and_lr(texture_model, config.trainer.lr_features, config.trainer.lr_mlp, len(dataset), config.trainer.epochs, config.dataloader.batch_size)
@@ -50,10 +58,10 @@ def train(config: DictConfig) -> None:
                         pixel_values = pixel_values.to(device=device, dtype=dtype)
                         coordinates = coordinates.to(device=device, dtype=torch.long)
                         predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
-                        predictions = predictions.cpu()
+                        # predictions = predictions.cpu()
                         materials = []
                         for j in range(predictions.shape[0]):
-                            materials.append(material.make_grid(predictions[j]))
+                            materials.append(texture_model.make_grid(predictions[j]).cpu())
                         grid = make_grid(materials, nrow=4)
                         to_pil_image(grid).save(f"test_images/predictions_{i+1}_{lod}.png")
     torch.save(texture_model, f"saves/{config.name}.pt")

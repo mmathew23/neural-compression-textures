@@ -119,10 +119,13 @@ class Material:
 
         return torch.clamp(tensor * self.std[:, None, None] + self.mean[:, None, None], 0, 1)
 
+    def get_material_splits(self):
+        return [self.material_slices[t][1]-self.material_slices[t][0] for t in self.keyword_order if t in self.material_slices]
+
     def split_material(self, tensor=None):
         if tensor is None:
             tensor = self.result_tensor
-        materials = torch.split(tensor, [self.material_slices[t][1]-self.material_slices[t][0] for t in self.keyword_order if t in self.material_slices], dim=0)
+        materials = torch.split(tensor, self.get_material_splits(), dim=0)
         return materials
 
     def expand_material(self, materials, channels=3):
