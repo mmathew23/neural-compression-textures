@@ -6,6 +6,32 @@ from torch.utils.data import Sampler
 import math
 import os
 from data.material import Material
+import numpy as np
+
+
+def sample_lod(lod_list, p=0.05):
+    # Generate the first random uniform number
+    random_number = np.random.rand()
+
+    if random_number <= p:
+        # Pick a number uniformly from the list
+        return np.random.choice(lod_list)
+    else:
+        # Generate another uniform random number
+        x = np.random.rand()
+        # Calculate floor(-log_4(x))
+        result = np.floor(-np.log(x) / np.log(4))
+        return result
+
+
+def sample_tile_coordinates(image_size, tile_size, num_samples):
+    # Maximum valid start coordinate
+    max_start = image_size - tile_size
+    # Randomly sample x and y coordinates within the valid range
+    x = torch.randint(0, max_start + 1, (num_samples,))
+    y = torch.randint(0, max_start + 1, (num_samples,))
+    # Stack the coordinates into a list of (x, y) pairs
+    return torch.stack([x, y], dim=1)
 
 
 class VariableTileDataset(Dataset):
