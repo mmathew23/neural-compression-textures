@@ -1,5 +1,6 @@
 device: 'cuda:0'
 dtype: 'float32'
+name: ground068_model
 trainer:
   epochs: 1
   lr_features: 0.01
@@ -15,7 +16,7 @@ dataloader:
 model:
   in_channels: 93
   hidden_channels: 64
-  out_channels: 8
+  out_channels: 9
   num_layers: 2
   features:
     resolution: 1024

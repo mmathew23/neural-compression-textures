@@ -30,16 +30,6 @@ def train(config: DictConfig) -> None:
         for i, batch in batch_progress:
             optimizer.zero_grad()
 
-            # for lod in lods[:8]:
-            #     lod_batch = batch[lod]
-            #     pixel_values, coordinates = lod_batch["pixel_values"], lod_batch["coordinates"]
-            #     tile_size = lod_batch["tile_size"]
-            #     pixel_values = pixel_values.to(device=device, dtype=dtype)
-            #     coordinates = coordinates.to(device=device, dtype=torch.long)
-            #     predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
-            #     loss = torch.nn.functional.mse_loss(predictions, pixel_values)
-            #     loss.backward()
-            #     total_loss += loss.item()
             lod = sample_lod(lods)
             pixel_values, coordinates = batch[lod]["pixel_values"], batch[lod]["coordinates"]
             tile_size = batch[lod]["tile_size"]
@@ -53,21 +43,20 @@ def train(config: DictConfig) -> None:
             optimizer.step()
             scheduler.step()
             if i % 1000 == 0:
-                # torch.save(texture_model.state_dict(), f"saves/model_{i+1}.pt")
                 with torch.no_grad():
-                    lod = torch.randint(0, 8, (1,)).item()
-                    pixel_values, coordinates = batch[lod]["pixel_values"], batch[lod]["coordinates"]
-                    tile_size = batch[lod]["tile_size"]
-                    pixel_values = pixel_values.to(device=device, dtype=dtype)
-                    coordinates = coordinates.to(device=device, dtype=torch.long)
-                    predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
-                    predictions = predictions.cpu()
-                    materials = []
-                    for j in range(predictions.shape[0]):
-                        materials.append(material.make_grid(predictions[j]))
-                    grid = make_grid(materials, nrow=4)
-                    to_pil_image(grid).save(f"test_images/predictions_{i+1}.png")
-    torch.save(texture_model, f"saves/model.pt")
+                    for lod in range(8):
+                        pixel_values, coordinates = batch[lod]["pixel_values"], batch[lod]["coordinates"]
+                        tile_size = batch[lod]["tile_size"]
+                        pixel_values = pixel_values.to(device=device, dtype=dtype)
+                        coordinates = coordinates.to(device=device, dtype=torch.long)
+                        predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
+                        predictions = predictions.cpu()
+                        materials = []
+                        for j in range(predictions.shape[0]):
+                            materials.append(material.make_grid(predictions[j]))
+                        grid = make_grid(materials, nrow=4)
+                        to_pil_image(grid).save(f"test_images/predictions_{i+1}_{lod}.png")
+    torch.save(texture_model, f"saves/{config.name}.pt")
 
 if __name__ == "__main__":
     train()
