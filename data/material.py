@@ -33,6 +33,14 @@ class Material:
         self.result_tensor = None  # This will hold the final result
         self.material_slices = {}  # This will hold the material type to slice the result tensor by
         self.material_count = 0
+        self.lod_cache = {}
+
+    def get_lod_resolution(self, lod, resolution):
+        if lod in self.lod_cache:
+            return self.lod_cache[lod]
+        else:
+            self.lod_cache[lod] = torch.nn.functional.interpolate(self.result_tensor[None], size=(resolution, resolution), mode='bilinear', align_corners=True)[0]
+            return self.lod_cache[lod]
 
     def identify_texture_type(self, filename):
         filename_lower = filename.lower()
@@ -109,7 +117,7 @@ class Material:
         if self.mean.shape[0] != tensor.shape[0] or self.std.shape[0] != tensor.shape[0]:
             raise ValueError("Mean and std length must be equal to the number of channels in the tensor.")
 
-        return tensor * self.std[:, None, None] + self.mean[:, None, None]
+        return torch.clamp(tensor * self.std[:, None, None] + self.mean[:, None, None], 0, 1)
 
     def split_material(self, tensor=None):
         if tensor is None:

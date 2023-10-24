@@ -30,8 +30,8 @@ def sample_tile_coordinates(image_size, tile_size, num_samples):
     # Randomly sample x and y coordinates within the valid range
     x = torch.randint(0, max_start + 1, (num_samples,))
     y = torch.randint(0, max_start + 1, (num_samples,))
-    # Stack the coordinates into a list of (x, y) pairs
-    return torch.stack([x, y], dim=1)
+    # Stack the coordinates into a list of (y, x) pairs since we like height, width order
+    return torch.stack([y, x], dim=1)
 
 
 class VariableTileDataset(Dataset):
@@ -39,6 +39,7 @@ class VariableTileDataset(Dataset):
         self.dtype = dtype
         self.resolution = resolution
         self.levels = [(i, int(self.resolution / (2**i))) for i in range(int(math.log2(self.resolution))+1)]
+        self.lod_list = [i for i, _ in self.levels]
         self.image = Material()
         self.image.process_images(image_path, resolution, dtype)
         self.tile_size = tile_size
@@ -57,18 +58,16 @@ class VariableTileDataset(Dataset):
         # Extract the tile and resize to the desired resolution
         return_dict = {}
         for level, level_resolution in self.levels:
-            tile = torch.nn.functional.interpolate(self.image.result_tensor[None], size=(level_resolution, level_resolution), mode='bilinear', align_corners=True)
-            # Calculate the top-left pixel of this tile
-            tile_x = (idx % self.tiles_x) * int(self.tile_size * (level_resolution / self.image_width))
-            tile_y = ((idx // self.tiles_y) % self.tiles_y) * int(self.tile_size * (level_resolution / self.image_width))
-
+            # tile = torch.nn.functional.interpolate(self.image.result_tensor[None], size=(level_resolution, level_resolution), mode='bilinear', align_corners=True)
+            tile = self.image.get_lod_resolution(level, level_resolution)
             tile_size = max(1, self.tile_size//(2**level))
-            # 0 since we added an index for interpolate to work. then collation will add the index back
-            tile = tile[0, :, tile_y:tile_y+tile_size, tile_x:tile_x+tile_size]
+            coordinates = sample_tile_coordinates(level_resolution, tile_size, 1)
+            tile_y, tile_x = coordinates[0]
+            tile = tile[:, tile_y:tile_y+tile_size, tile_x:tile_x+tile_size]
             return_dict[level] = {
                 "pixel_values": tile,
                 'resolution': level_resolution,
-                'coordinates': torch.tensor([tile_y, tile_x], dtype=torch.long),
+                'coordinates': coordinates,
                 'tile_size': tile_size,
             }
 
