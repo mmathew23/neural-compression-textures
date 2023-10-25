@@ -32,11 +32,17 @@ class MLP(nn.Module):
         self.layers = nn.Sequential()
 
         self.layers.append(nn.Conv2d(in_channels, hidden_channels, 1))
+        nn.init.kaiming_normal_(self.layers[-1].weight, mode='fan_out', nonlinearity='relu')
+        nn.init.zeros_(self.layers[-1].bias)
         self.layers.append(HardGELU())
         for _ in range(num_layers - 2):
             self.layers.append(nn.Conv2d(hidden_channels, hidden_channels, 1))
+            nn.init.kaiming_normal_(self.layers[-1].weight, mode='fan_out', nonlinearity='relu')
+            nn.init.zeros_(self.layers[-1].bias)
             self.layers.append(HardGELU())
         self.layers.append(nn.Conv2d(hidden_channels, out_channels, 1))
+        nn.init.kaiming_normal_(self.layers[-1].weight, mode='fan_out', nonlinearity='relu')
+        nn.init.zeros_(self.layers[-1].bias)
 
     def forward(self, x):
         return self.layers(x)

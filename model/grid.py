@@ -17,8 +17,7 @@ class Grid(nn.Module):
         self.quant_right = (-self.n_quant_bins) / (2*self.n_quant_bins)
         self.circular = circular
 
-        self.grid = nn.Parameter(torch.zeros(1, channels, h, w))
-        nn.init.xavier_normal_(self.grid)
+        self.grid = nn.Parameter(torch.randn(1, channels, h, w)/100)
 
     def resample(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w, quantize=False):
         raise NotImplementedError
@@ -67,10 +66,11 @@ class Grid0(Grid):
         # returns plus 1 in each direction so that we can concatenate them to a neural network
         # to upsample
         full_x, full_y = convert_coordinate_start(coordinate_start, h+1, w+1, stride=stride, flatten_sequence=False)
-
         # we don't want to sample in between points so we need to round
         full_x = full_x // scale_factor_w
         full_y = full_y // scale_factor_h
+        print(full_y)
+        print(full_x)
         if self.circular:
             full_x = ((full_x % self.w) - offset_w) / offset_w
             full_y = ((full_y % self.h) - offset_h) / offset_h
@@ -79,6 +79,7 @@ class Grid0(Grid):
             full_x = (full_x - offset_w) / offset_w
             full_y = (full_y - offset_h) / offset_h
 
+        print(full_y)
         full_coordinates = torch.cat((full_y, full_x), dim=-1)
         full_coordinates = full_coordinates.to(device=self.grid.device, dtype=self.grid.dtype)
 
@@ -106,11 +107,14 @@ class Grid1(Grid):
         scale_factor_h = support_resolution_h / self.h
         scale_factor_w = support_resolution_w / self.w
         assert scale_factor_h == scale_factor_w, f"Scale factors must be equal check the h: {h} and w: {w} values"
+        print(scale_factor_h)
 
         offset_h = (support_resolution_h-1) / 2
         offset_w = (support_resolution_w-1) / 2
+        print(offset_h)
         # meshgrid returns the opposite convention of what grid_sample uses
         full_x, full_y = convert_coordinate_start(coordinate_start, h, w, stride=stride, flatten_sequence=False)
+        print(full_y)
         if self.circular:
             # normalize and account for circular
             full_x = ((full_x % support_resolution_w) - offset_w) / offset_w
@@ -120,6 +124,7 @@ class Grid1(Grid):
             full_x = (full_x - offset_w) / offset_w
             full_y = (full_y - offset_h) / offset_h
 
+        print(full_y)
         full_coordinates = torch.cat((full_y, full_x), dim=-1)
         full_coordinates = full_coordinates.to(device=self.grid.device, dtype=self.grid.dtype)
 
