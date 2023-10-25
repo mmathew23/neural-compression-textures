@@ -20,19 +20,30 @@ class Grid(nn.Module):
         self.grid = nn.Parameter(torch.zeros(1, channels, h, w))
         nn.init.xavier_normal_(self.grid)
 
-    def resample(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w):
+    def resample(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w, quantize=False):
         raise NotImplementedError
 
     def simulate_quantization(self):
+        print('quantizing')
         uniform = (torch.rand_like(self.grid) / self.n_quant_bins) - 1/(2*self.n_quant_bins)
         return self.grid + uniform
+
+    @torch.no_grad()
+    def quantize_grid_and_freeze(self):
+        bin_edges = torch.linspace(self.quant_left, self.quant_right, steps=self.n_quant_bins+1)
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+        bin_indices = torch.bucketize(self.grid, bin_edges, right=True) - 1
+
+        self.grid.data = bin_centers[bin_indices]
+        self.grid.requires_grad_(False)
 
     @torch.no_grad()
     def clamp_values(self):
         self.grid.data.clamp_(-self.quant_left, self.quant_right)
 
-    def forward(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w):
-        return self.resample(coordinate_start, h, w, stride, support_resolution_h, support_resolution_w)
+    def forward(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w, quantize=False):
+        return self.resample(coordinate_start, h, w, stride, support_resolution_h, support_resolution_w, quantize=quantize)
 
 
 class Grid0(Grid):
@@ -42,7 +53,7 @@ class Grid0(Grid):
     def __init__(self, channels, h, w, quantization, circular=False):
         super().__init__(channels, h, w, quantization, circular)
 
-    def resample(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w):
+    def resample(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w, quantize=False):
         # Support resolution not needed since normalization is determined by main grid size
         scale_factor_h = support_resolution_h / self.h
         scale_factor_w = support_resolution_w / self.w
@@ -51,6 +62,7 @@ class Grid0(Grid):
         # no minus one because we need 1 extra pixel
         offset_h = (self.h) / 2
         offset_w = (self.w) / 2
+
         # meshgrid returns the opposite convention of what grid_sample uses
         # returns plus 1 in each direction so that we can concatenate them to a neural network
         # to upsample
@@ -66,13 +78,18 @@ class Grid0(Grid):
             # extra coordinate in this case should follow grid samples padding_mode
             full_x = (full_x - offset_w) / offset_w
             full_y = (full_y - offset_h) / offset_h
+
         full_coordinates = torch.cat((full_y, full_x), dim=-1)
         full_coordinates = full_coordinates.to(device=self.grid.device, dtype=self.grid.dtype)
-        grid = torch.nn.functional.grid_sample(self.grid.expand([full_coordinates.shape[0], self.grid.shape[1], self.grid.shape[2], self.grid.shape[3]]), full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
-        
+
+        if quantize:
+            grid = self.simulate_quantization()
+        else:
+            grid = self.grid
+        grid = torch.nn.functional.grid_sample(grid.expand([full_coordinates.shape[0], self.grid.shape[1], self.grid.shape[2], self.grid.shape[3]]), full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
+
         # not a great use of memory for large grids, but the mlp is pixel wise so we need to duplicate the grid
         # to mimic upsampling
-        # 
         grid = torch.cat([grid[:, :, :-1, :-1], grid[:, :, 1:, :-1], grid[:, :, :-1, 1:], grid[:, :, 1:, 1:]], dim=1)
         return grid
 
@@ -84,7 +101,7 @@ class Grid1(Grid):
     def __init__(self, channels, h, w, quantization, circular=False):
         super().__init__(channels, h, w, quantization, circular)
 
-    def resample(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w):
+    def resample(self, coordinate_start, h, w, stride, support_resolution_h, support_resolution_w, quantize=False):
         # support resolution does the scaling so that it samples the grid appropriately
         scale_factor_h = support_resolution_h / self.h
         scale_factor_w = support_resolution_w / self.w
@@ -102,8 +119,14 @@ class Grid1(Grid):
             # normalize
             full_x = (full_x - offset_w) / offset_w
             full_y = (full_y - offset_h) / offset_h
+
         full_coordinates = torch.cat((full_y, full_x), dim=-1)
         full_coordinates = full_coordinates.to(device=self.grid.device, dtype=self.grid.dtype)
-        grid = torch.nn.functional.grid_sample(self.grid.expand([full_coordinates.shape[0], self.grid.shape[1], self.grid.shape[2], self.grid.shape[3]]), full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
+
+        if quantize:
+            grid = self.simulate_quantization()
+        else:
+            grid = self.grid
+        grid = torch.nn.functional.grid_sample(grid.expand([full_coordinates.shape[0], self.grid.shape[1], self.grid.shape[2], self.grid.shape[3]]), full_coordinates, mode='bilinear', padding_mode='border', align_corners=True)
 
         return grid

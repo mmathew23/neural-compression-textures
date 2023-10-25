@@ -17,16 +17,19 @@ class Model(nn.Module):
         self.register_buffer("std", std)
         self.splits = None
 
-    def forward(self, coordinates, h, w, lod):
-        features = self.features(coordinates, h, w, lod)
+    def quantize_grid_and_freeze(self):
+        self.features.quantize_grid_and_freeze()
+
+    def forward(self, coordinates, h, w, lod, quantize=False):
+        features = self.features(coordinates, h, w, lod, quantize=quantize)
         return self.mlp(features)
 
     @torch.no_grad()
     def inference(self, coordinates, h, w, lod):
         assert coordinates.shape[0] == 1
-        features = self.features(coordinates, h, w, lod)
+        features = self.features(coordinates, h, w, lod, quantize=False)
         material = self.mlp(features)
-        return self.make_grid(material)
+        return self.make_grid(material[0])
 
     def denormalize(self, tensor):
         # This method assumes the input mean and std are tensors with the same number of elements as channels in 'tensor'

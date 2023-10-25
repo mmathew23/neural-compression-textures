@@ -1,6 +1,6 @@
 device: 'cuda:0'
 dtype: 'float32'
-name: ground068_model
+name: ground068_model_quantcheck
 trainer:
   epochs: 1
   lr_features: 0.01
@@ -14,7 +14,7 @@ dataloader:
   batch_size: 8
   num_workers: 8
 model:
-  in_channels: 93
+  in_channels: 81
   hidden_channels: 64
   out_channels: 9
   num_layers: 2
@@ -23,11 +23,11 @@ model:
     circular: True
     feature_levels:
       - grid0:
-          channels: 16
+          channels: 12
           h: 256
           w: 256
         grid1:
-          channels: 16
+          channels: 20
           h: 128
           w: 128
         lod:
@@ -37,11 +37,11 @@ model:
           - 3
         quantization: 8
       - grid0:
-          channels: 16
+          channels: 12
           h: 64
           w: 64
         grid1:
-          channels: 16
+          channels: 20
           h: 32
           w: 32
         lod:
@@ -49,11 +49,11 @@ model:
           - 5
         quantization: 8
       - grid0:
-          channels: 16
+          channels: 12
           h: 16
           w: 16
         grid1:
-          channels: 16
+          channels: 20
           h: 8
           w: 8
         lod:
@@ -61,11 +61,11 @@ model:
           - 7
         quantization: 8
       - grid0:
-          channels: 16
+          channels: 12
           h: 4
           w: 4
         grid1:
-          channels: 16
+          channels: 20
           h: 2
           w: 2
         lod:

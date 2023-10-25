@@ -15,10 +15,14 @@ class FeatureLevel(nn.Module):
 
         self.lod = lod
 
-    def forward(self, coordinate_start, h, w, stride, resolution):
+    def quantize_grid_and_freeze(self):
+        self.grid0.quantize_grid_and_freeze()
+        self.grid1.quantize_grid_and_freeze()
+
+    def forward(self, coordinate_start, h, w, stride, resolution, quantize=False):
         return torch.cat([
-            self.grid0(coordinate_start, h, w, stride, resolution, resolution),
-            self.grid1(coordinate_start, h, w, stride, resolution, resolution),],
+            self.grid0(coordinate_start, h, w, stride, resolution, resolution, quantize=quantize),
+            self.grid1(coordinate_start, h, w, stride, resolution, resolution, quantize=quantize),],
             dim=1
         )
 
@@ -57,13 +61,17 @@ class Features(nn.Module):
 
         self.positional_encoding = TriangularPositionalEncoding2D(**feature_config.positional_encoding)
 
-    def forward(self, coordinate_start, h, w, lod):
+    def quantize_grid_and_freeze(self):
+        for feature_level in self.feature_levels:
+            feature_level.quantize_grid_and_freeze()
+
+    def forward(self, coordinate_start, h, w, lod, quantize=False):
         if lod in self.lod_to_feature_level:
             feature_module_idx = self.lod_to_feature_level[lod]
             feature_module = self.feature_levels[feature_module_idx]
             resolution = self.lod_to_resolution[lod]
             stride = self.resolution_to_stride[resolution]
-            grid_features = feature_module(coordinate_start, h, w, 1, resolution)
+            grid_features = feature_module(coordinate_start, h, w, 1, resolution, quantize=quantize)
             # lod_features = torch.ones_like(grid_features) * (lod-self.lod_offset) / self.lod_scale
             lod_features = torch.ones(grid_features.shape[0], 1, grid_features.shape[2], grid_features.shape[3], device=grid_features.device) * (lod-self.lod_offset) / self.lod_scale
             position_features = self.positional_encoding(coordinate_start, h, w, stride)
