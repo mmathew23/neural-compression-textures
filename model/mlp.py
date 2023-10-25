@@ -31,13 +31,12 @@ class MLP(nn.Module):
 
         self.layers = nn.Sequential()
 
-        self.layers.append(nn.Linear(in_channels, hidden_channels))
+        self.layers.append(nn.Conv2d(in_channels, hidden_channels, 1))
         self.layers.append(HardGELU())
         for _ in range(num_layers - 2):
-            self.layers.append(nn.Linear(hidden_channels, hidden_channels))
+            self.layers.append(nn.Conv2d(hidden_channels, hidden_channels, 1))
             self.layers.append(HardGELU())
-        self.layers.append(nn.Linear(hidden_channels, out_channels))
+        self.layers.append(nn.Conv2d(hidden_channels, out_channels, 1))
 
     def forward(self, x):
-        # permute so that linear layer can operate on channels
-        return self.layers(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+        return self.layers(x)
