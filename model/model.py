@@ -20,6 +20,9 @@ class Model(nn.Module):
     def quantize_grid_and_freeze(self):
         self.features.quantize_grid_and_freeze()
 
+    def clamp_values(self):
+        self.features.clamp_values()
+
     def forward(self, coordinates, h, w, lod, quantize=False):
         features = self.features(coordinates, h, w, lod, quantize=quantize)
         return self.mlp(features)

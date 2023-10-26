@@ -19,6 +19,10 @@ class FeatureLevel(nn.Module):
         self.grid0.quantize_grid_and_freeze()
         self.grid1.quantize_grid_and_freeze()
 
+    def clamp_values(self):
+        self.grid0.clamp_values()
+        self.grid1.clamp_values()
+
     def forward(self, coordinate_start, h, w, stride, resolution, quantize=False):
         return torch.cat([
             self.grid0(coordinate_start, h, w, stride, resolution, resolution, quantize=quantize),
@@ -64,6 +68,10 @@ class Features(nn.Module):
     def quantize_grid_and_freeze(self):
         for feature_level in self.feature_levels:
             feature_level.quantize_grid_and_freeze()
+
+    def clamp_values(self):
+        for feature_level in self.feature_levels:
+            feature_level.clamp_values()
 
     def forward(self, coordinate_start, h, w, lod, quantize=False):
         if lod in self.lod_to_feature_level:

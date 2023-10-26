@@ -32,6 +32,11 @@ def train(config: DictConfig) -> None:
     texture_model.to(device=device, dtype=dtype)
     print(f'number of elements {numel(texture_model)}')
     optimizer, scheduler = get_optimizer_and_lr(texture_model, config.trainer.lr_features, config.trainer.lr_mlp, len(dataset), config.trainer.epochs, config.dataloader.batch_size)
+    total_steps = config.trainer.epochs * (len(dataset) // config.dataloader.batch_size + (1 if len(dataset) % config.dataloader.batch_size else 0))
+    simulated_quantize_cutoff = int(total_steps*0.95)
+    simulate_quantization = True
+    if simulate_quantization:
+        print('simulating quantization')
 
     lods = get_lod_from_resolution(config.dataset.resolution)
     for epoch in range(config.trainer.epochs):
@@ -44,28 +49,24 @@ def train(config: DictConfig) -> None:
             tile_size = batch[lod]["tile_size"]
             pixel_values = pixel_values.to(device=device, dtype=dtype)
             coordinates = coordinates.to(device=device, dtype=torch.long)
-            predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
+            predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod, quantize=simulate_quantization)
             loss = torch.nn.functional.mse_loss(predictions, pixel_values)
             loss.backward()
 
             batch_progress.set_postfix({"loss": loss.item()})
             optimizer.step()
             scheduler.step()
-            if i % 5000 == 0:
-                # with torch.no_grad():
-                #     for lod in range(8):
-                #         pixel_values, coordinates = batch[lod]["pixel_values"], batch[lod]["coordinates"]
-                #         tile_size = batch[lod]["tile_size"]
-                #         pixel_values = pixel_values.to(device=device, dtype=dtype)
-                #         coordinates = coordinates.to(device=device, dtype=torch.long)
-                #         predictions = texture_model(coordinates, tile_size[0], tile_size[0], lod)
-                #         # predictions = predictions.cpu()
-                #         materials = []
-                #         for j in range(predictions.shape[0]):
-                #             materials.append(texture_model.make_grid(predictions[j]).cpu())
-                #         grid = make_grid(materials, nrow=4)
-                #         to_pil_image(grid).save(f"test_images/predictions_{i+1}_{lod}.png")
+            if i % 10000 == 0:
                 visualize(batch, texture_model, device, dtype, i)
+
+            if (epoch)*len(dataset) + i < simulated_quantize_cutoff:
+                texture_model.clamp_values()
+            else:
+                if simulate_quantization:
+                    print('Freezing grids')
+                    texture_model.clamp_values()
+                    texture_model.quantize_grid_and_freeze()
+                    simulate_quantization = False
     visualize(batch, texture_model, device, dtype, -1)
     torch.save(texture_model.cpu(), f"saves/{config.name}.pt")
 
