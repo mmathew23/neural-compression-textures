@@ -32,6 +32,7 @@ class Grid(nn.Module):
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
         bin_indices = torch.bucketize(self.grid, bin_edges, right=True) - 1
+        bin_indices.clamp_(0, self.n_quant_bins - 1) # ensure within range
 
         self.grid.data = bin_centers[bin_indices]
         self.grid.requires_grad_(False)
