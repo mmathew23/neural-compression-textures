@@ -5,5 +5,7 @@ An unofficial PyTorch implentation of the paper *Random Access Neural Compressio
 WIP
 - [x] Single Image training
 - [x] Texture Set Training
-- [ ] Quantized Training
+- [x] Quantized Training
+- [ ] Inference Script
+- [ ] Examples
 

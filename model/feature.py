@@ -56,11 +56,13 @@ class Features(nn.Module):
                 lod=level.lod,
             )
             self.feature_levels.append(feature_module)
+            # Can remove this block
             for lod_idx, lod in enumerate(level.lod):
                 lod_check[lod] = True
                 self.lod_to_feature_level[lod] = feature_idx
                 resolution = self.lod_to_resolution[lod]
                 self.resolution_to_stride[resolution] = int(2**(lod_idx+(0 if feature_idx == 0 else 1)))
+            ##
         assert all(lod_check), "all lod levels must be present in config for resolution {self.resolution}"
 
         self.positional_encoding = TriangularPositionalEncoding2D(**feature_config.positional_encoding)
@@ -82,7 +84,7 @@ class Features(nn.Module):
             grid_features = feature_module(coordinate_start, h, w, 1, resolution, quantize=quantize)
             # lod_features = torch.ones_like(grid_features) * (lod-self.lod_offset) / self.lod_scale
             lod_features = torch.ones(grid_features.shape[0], 1, grid_features.shape[2], grid_features.shape[3], device=grid_features.device) * (lod-self.lod_offset) / self.lod_scale
-            position_features = self.positional_encoding(coordinate_start, h, w, stride)
+            position_features = self.positional_encoding(coordinate_start, h, w, 1)
             features = torch.cat([grid_features, lod_features, position_features], dim=1)
         else:
             raise ValueError(f"lod {lod} not found in feature levels")
